@@ -9,6 +9,12 @@
 * */
 
 chrome.action.onClicked.addListener(async (tab) =>{
+    const current = await chrome.tabs.get(tab.id);
+    if (!current.audible) {
+        console.log("[background] tab not audible, skipping capture");
+        return;
+    }
+
     const existing = await chrome.runtime.getContexts({
        contextTypes: ["OFFSCREEN_DOCUMENT"],
    });
