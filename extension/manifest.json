@@ -6,5 +6,6 @@
   "permissions": ["tabCapture", "offscreen", "tabs"],
   "host_permissions": ["http://127.0.0.1/*"],
   "background": {"service_worker": "background.js"},
-  "action": {}
+  "action": {},
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0oJMVuD39L3Deg9ehtaXb9aTA4ZdceFA+GmomXbWv8Hv1d/LdTx7YZ+U1i6+89DMe+ONOlLSqLi6hQQdaux4eyWldhsPNLS5zmZy1C3GmAbAEQxmpXCzHVTco/HPs+dEbyocGBE4N/88lFS7zAqCRjQDuP+llGlujMfYxny4Yo8p6e/trprhtvY0Cjt1jyQDjKDFJDacmTaRrQQ83SHHd0l0qXfbOwUkDhMruG6FLIDTqOj/FRNoxCqhIAPPt7/F3ieVKCPVGqSdfWx2Zt6wMEVqdL4fTr2v/PEkCailSqbChGUZcMzK6ytQHkAas/yma6MLpY81Y3pHdbGBnOB5vQIDAQAB"
 }

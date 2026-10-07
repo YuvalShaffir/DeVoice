@@ -4,7 +4,15 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "demucs>=4.0.1",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "numpy>=2.5.3",
+    "pytest>=9.1.1",
+    "python-multipart>=0.0.32",
+    "torch>=2.14.1",
+]
 
 [dependency-groups]
 dev = [
@@ -12,3 +20,8 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.9",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+addopts = "-m 'not slow'"
+markers = ["slow: loads the real Demucs model (run with -m slow)"]
