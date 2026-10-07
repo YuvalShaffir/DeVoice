@@ -16,3 +16,6 @@ jobs:
           enable-cache: true
       - run: uv sync --dev
       - run: uv run pre-commit run --all-files
+        env:
+          SKIP: pytest
+      - run: uv run pytest -v
