@@ -5,14 +5,12 @@ import wave
 import numpy as np
 import torch
 from demucs.api import Separator
+from stems import NO_VOCALS, VOCALS
 from torch import Tensor
 
 total_cores = os.cpu_count() or 1
 
 DEMUCS_MODEL = "htdemucs"
-
-VOCALS = "vocals"
-NO_VOCALS = "no_vocals"
 
 
 def _wav_bytes_to_tensor(data: bytes) -> tuple[torch.Tensor, int]:

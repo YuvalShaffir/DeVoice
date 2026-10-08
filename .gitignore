@@ -10,4 +10,8 @@ build/
 .idea/
 .vscode/
 .DS_Store
-.env
+backend/.env
+.auth_token
+*.wav
+coverage.xml
+.coverage
