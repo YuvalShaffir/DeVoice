@@ -31,3 +31,11 @@ markers = ["slow: loads the real Demucs model (run with -m slow)"]
 [tool.coverage.run]
 include = ["backend/*"]
 relative_files = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }

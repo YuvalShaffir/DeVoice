@@ -1,5 +1,4 @@
 import io
-import os
 import wave
 
 import numpy as np
@@ -7,8 +6,6 @@ import torch
 from demucs.api import Separator
 from stems import NO_VOCALS, VOCALS
 from torch import Tensor
-
-total_cores = os.cpu_count() or 1
 
 DEMUCS_MODEL = "htdemucs"
 
@@ -42,7 +39,6 @@ def _sum_non_vocals(stems: dict[str, Tensor], vocals_tensor: Tensor) -> Tensor:
 separator = Separator(
     model=DEMUCS_MODEL,
     device="cuda" if torch.cuda.is_available() else "cpu",
-    jobs=max(1, total_cores - 1),
 )
 
 
