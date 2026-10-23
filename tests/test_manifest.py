@@ -36,3 +36,11 @@ def test_offscreen_document_and_its_script_exist():
     ]
     for script in referenced_scripts:
         assert (EXTENSION_DIR / script).is_file()
+
+
+def test_popup_is_default_action_and_script_exists():
+    popup = load_manifest()["action"]["default_popup"]
+    popup_html = EXTENSION_DIR / popup
+    assert popup_html.is_file()
+    assert (EXTENSION_DIR / "popup.js").is_file()
+    assert 'src="popup.js"' in popup_html.read_text()

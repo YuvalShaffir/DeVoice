@@ -2,7 +2,7 @@
 
 ## JS test plan (extension)
 
-Scope: `extension/*.js` (`background.js`, `capture-processor.js`, `offscreen.js`, `options.js`). Python tests in `tests/*.py` cover backend and static extension checks (manifest, file references); JS behavior is tested here.
+Scope: `extension/*.js` (`background.js`, `capture-processor.js`, `offscreen.js`, `options.js`, `popup.js`). Python tests in `tests/*.py` cover backend and static extension checks (manifest, file references); JS behavior is tested here.
 
 ### Run
 
@@ -23,14 +23,15 @@ Scope: `extension/*.js` (`background.js`, `capture-processor.js`, `offscreen.js`
 ### Cases per file
 
 - `options.test.js`: hint shown when token saved / not shown otherwise; empty input rejected; token trimmed, stored, badge cleared, input cleared.
-- `background.test.js`: no token → setup badge + options page; silent tab → skip; happy path → offscreen doc created + `stream-id` message with token; existing offscreen doc reused; `backend-error` auth → badge + options page; unreachable → badge only; unrelated messages ignored.
+- `popup.test.js`: initial on/off render per capturing tab; stored error shown; toggle starts/stops capture; silent tab keeps off with note; settings link opens options.
+- `background.test.js`: `start-capture`: no token → setup badge + options page; silent tab → skip; happy path → offscreen doc created + `stream-id` message with token and tab id; existing offscreen doc reused; `get-status` with/without offscreen doc; `backend-error` auth → badge + options page; unreachable → badge only; unrelated messages ignored.
 - `capture-processor.test.js`: no input kept alive; chunk emitted after 6 s of samples; mono duplicated to right; silent chunk dropped; one loud channel kept.
-- `offscreen.test.js`: unrelated messages ignored; chunk upload sends `X-Auth-Token`, fetches each stem, plays and revokes URLs; out-of-order chunks play in order and failed chunks skipped; 403 on `/separate` and `/stem` → auth error and capture stopped; `TypeError` → unreachable; 5xx → chunk skipped, capture continues; stale-session response dropped after `stopCapture`; `play()` rejection still completes the chunk; `encodeWav` header, stereo 16-bit PCM, clamping.
+- `offscreen.test.js`: unrelated messages ignored; `capture-status` / `stop-capture`; chunk upload sends `X-Auth-Token`, fetches each stem, plays and revokes URLs; out-of-order chunks play in order and failed chunks skipped; 403 on `/separate` and `/stem` → auth error and capture stopped; `TypeError` → unreachable; 5xx → chunk skipped, capture continues; stale-session response dropped after `stopCapture`; `play()` rejection still completes the chunk; `encodeWav` header, stereo 16-bit PCM, clamping.
 
 ### Not covered / non-goals
 
 - Real browser APIs, real audio output, real backend (see `tests/test_separation_integration.py` for backend).
-- HTML pages (`popup.html`, `options.html`, `offscreen.html`).
+- HTML pages and CSS (`popup.html`, `options.html`, `offscreen.html`).
 - Remaining uncovered branches: a few defensive optional-chaining paths in `offscreen.js` (`stopCapture` before first capture, etc.).
 
 ### Adding tests

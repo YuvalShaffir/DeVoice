@@ -56,7 +56,7 @@ function happyFetch(url) {
 }
 
 async function start(env) {
-  env.h.message({ type: "stream-id", streamId: "sid", token: "tok" });
+  env.h.message({ type: "stream-id", streamId: "sid", token: "tok", tabId: 5 });
   await tick();
 }
 
@@ -64,6 +64,17 @@ const chunk = (env, index = 1) => {
   const left = new Float32Array([0, 0.5, -0.5, 2, -2]);
   env.run("processorNode").port.onmessage({ data: { left, right: left, sampleRate: 100 } });
 };
+
+test("capture-status reports capturing tab, stop-capture stops and clears it", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  const ask = (msg) => new Promise((resolve) => env.h.message(msg, {}, resolve));
+  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: undefined });
+  await start(env);
+  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: 5 });
+  assert.deepEqual(await ask({ type: "stop-capture" }), { ok: true });
+  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: undefined });
+  assert.strictEqual(env.log.trackStops, 1);
+});
 
 test("ignores unrelated messages", async () => {
   const env = setup({ fetchImpl: happyFetch });
