@@ -14,12 +14,18 @@ function buildMixer() {
     }
 }
 
-chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type !== "stream-id") return;
-    void startCapture(msg.streamId, msg.token);
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg.type === "stream-id") {
+        void startCapture(msg.streamId, msg.token, msg.tabId);
+    } else if (msg.type === "capture-status") {
+        sendResponse({tabId: captureTabId});
+    } else if (msg.type === "stop-capture") {
+        void stopCapture().then(() => sendResponse({ok: true}));
+        return true;
+    }
 });
 
-let captureCtx, processorNode, captureStream;
+let captureCtx, processorNode, captureStream, captureTabId;
 let chunkIndex = 0;
 let session = 0;
 
@@ -29,15 +35,16 @@ async function stopCapture() {
     captureStream?.getTracks().forEach((t) => t.stop());
     await captureCtx?.close();
     await mixerCtx?.close();
-    captureCtx = mixerCtx = processorNode = captureStream = undefined;
+    captureCtx = mixerCtx = processorNode = captureStream = captureTabId = undefined;
     ready.clear();
     nextIndex = 1;
     chunkIndex = 0;
     playing = false;
 }
 
-async function startCapture(streamId, token) {
+async function startCapture(streamId, token, tabId) {
     await stopCapture();
+    captureTabId = tabId;
 
     captureStream = await navigator.mediaDevices.getUserMedia({
         audio: {

@@ -3,7 +3,7 @@
 * Orchestration ONLY
 *
 * Tasks:
-* 1. fire only when the extension's primary toolbar icon was clicked
+* 1. start capture when the popup asks (toggle on), report status to the popup
 * 2. ask Chrome for a stream capture handle
 * 3. Hand that handle to whoever actually needs it
 * */
@@ -18,34 +18,31 @@ function showError(reason) {
     const [text, title] = ERRORS[reason];
     chrome.action.setBadgeText({ text });
     chrome.action.setTitle({ title });
+    chrome.storage.session.set({ lastError: title });
 }
 
-chrome.runtime.onMessage.addListener((msg) => {
-    if (msg.type !== "backend-error") return;
-    showError(msg.reason);
-    if (msg.reason === "auth") chrome.runtime.openOptionsPage();
-});
+async function offscreenContexts() {
+    return chrome.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
+}
 
-chrome.action.onClicked.addListener(async (tab) =>{
+async function startCapture(tabId) {
     const {authToken} = await chrome.storage.local.get("authToken");
     if (!authToken) {
         showError("setup");
         chrome.runtime.openOptionsPage();
-        return;
+        return {ok: false, reason: "setup"};
     }
-    await chrome.action.setBadgeText({text: ""});
 
-    const current = await chrome.tabs.get(tab.id);
+    const current = await chrome.tabs.get(tabId);
     if (!current.audible) {
         console.log("[background] tab not audible, skipping capture");
-        return;
+        return {ok: false, reason: "silent"};
     }
 
-    const existing = await chrome.runtime.getContexts({
-       contextTypes: ["OFFSCREEN_DOCUMENT"],
-   });
+    await chrome.action.setBadgeText({text: ""});
+    await chrome.storage.session.remove("lastError");
 
-    if (existing.length === 0) {
+    if ((await offscreenContexts()).length === 0) {
         await chrome.offscreen.createDocument({
             url: "offscreen.html",
             reasons: ["USER_MEDIA"],
@@ -54,8 +51,30 @@ chrome.action.onClicked.addListener(async (tab) =>{
     }
 
     const streamId = await chrome.tabCapture.getMediaStreamId({
-        targetTabId: tab.id,
+        targetTabId: tabId,
     });
 
-    await chrome.runtime.sendMessage({type: "stream-id", streamId, token: authToken});
+    await chrome.runtime.sendMessage({type: "stream-id", streamId, token: authToken, tabId});
+    return {ok: true};
+}
+
+async function getStatus() {
+    const {lastError} = await chrome.storage.session.get("lastError");
+    const capturing = (await offscreenContexts()).length > 0
+        ? await chrome.runtime.sendMessage({type: "capture-status"})
+        : null;
+    return {tabId: capturing?.tabId ?? null, error: lastError ?? null};
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg.type === "backend-error") {
+        showError(msg.reason);
+        if (msg.reason === "auth") chrome.runtime.openOptionsPage();
+    } else if (msg.type === "start-capture") {
+        void startCapture(msg.tabId).then(sendResponse);
+        return true;
+    } else if (msg.type === "get-status") {
+        void getStatus().then(sendResponse);
+        return true;
+    }
 });
