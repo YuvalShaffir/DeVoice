@@ -24,3 +24,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: agent-docs
+        name: agent docs present
+        entry: uv run python scripts/check_agent_docs.py
+        language: system
+        pass_filenames: true
