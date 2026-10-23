@@ -1,0 +1,11 @@
+{
+  "name": "devoice-extension-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"tests/js/*.test.js\"",
+    "coverage": "c8 --reporter=lcovonly --reporter=text --include='extension/*.js' node --test \"tests/js/*.test.js\""
+  },
+  "devDependencies": {
+    "c8": "^10.1.3"
+  }
+}
