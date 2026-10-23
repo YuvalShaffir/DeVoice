@@ -12,6 +12,5 @@ EXTENSION_ORIGIN = f"chrome-extension://{ID}"
 app = create_app(
     token=load_token(HERE / ".auth_token"),
     separate=separate,
-    cache_dir=HERE / "cache",
     extension_origin=EXTENSION_ORIGIN,
 )

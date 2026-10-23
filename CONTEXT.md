@@ -9,5 +9,5 @@
 ## Decisions
 
 - Backend is local-only and token-gated, origin-locked to the extension ID (`EXTENSION_ID` env).
-- Results cached by content hash, so repeated audio is not re-separated.
+- Stems are never written to disk; each is held in memory until fetched once.
 - Extension scripts are plain browser scripts, no bundler.
