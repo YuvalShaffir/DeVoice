@@ -16,17 +16,11 @@ def fake_separate(data: bytes) -> dict[str, bytes]:
 
 
 @pytest.fixture
-def cache_dir(tmp_path):
-    return tmp_path / "cache"
-
-
-@pytest.fixture
-def client(cache_dir):
+def client():
     return TestClient(
         create_app(
             token=TOKEN,
             separate=fake_separate,
-            cache_dir=cache_dir,
             extension_origin=ORIGIN,
         )
     )
@@ -63,18 +57,24 @@ def test_separate_with_correct_token_accepted(client):
     assert set(res.json()) == {"id", "stems"}
 
 
-def test_stem_with_correct_token_accepted(client, cache_dir):
-    (cache_dir / HASH).mkdir()
-    (cache_dir / HASH / "vocals.wav").write_bytes(b"v")
-    res = client.get(f"/stem/{HASH}/vocals", headers={"X-Auth-Token": TOKEN})
+def test_stem_with_correct_token_accepted(client):
+    id_ = upload(client, {"X-Auth-Token": TOKEN}).json()["id"]
+    res = client.get(f"/stem/{id_}/vocals", headers={"X-Auth-Token": TOKEN})
     assert res.status_code == 200
     assert res.headers["content-type"] == "audio/wav"
+    assert res.content == b"v"
 
 
-def test_stem_without_token_rejected(client, cache_dir):
-    (cache_dir / HASH).mkdir()
-    (cache_dir / HASH / "vocals.wav").write_bytes(b"v")
-    assert client.get(f"/stem/{HASH}/vocals").status_code == 403
+def test_stem_without_token_rejected(client):
+    id_ = upload(client, {"X-Auth-Token": TOKEN}).json()["id"]
+    assert client.get(f"/stem/{id_}/vocals").status_code == 403
+
+
+def test_stem_served_once_then_gone(client):
+    headers = {"X-Auth-Token": TOKEN}
+    id_ = upload(client, headers).json()["id"]
+    assert client.get(f"/stem/{id_}/vocals", headers=headers).status_code == 200
+    assert client.get(f"/stem/{id_}/vocals", headers=headers).status_code == 404
 
 
 def test_unknown_stem_returns_404(client):
@@ -82,10 +82,9 @@ def test_unknown_stem_returns_404(client):
     assert res.status_code == 404
 
 
-def test_uncached_stem_returns_404_without_leaking_server_path(client, cache_dir):
+def test_unknown_hash_returns_404(client):
     res = client.get(f"/stem/{HASH}/vocals", headers={"X-Auth-Token": TOKEN})
     assert res.status_code == 404
-    assert str(cache_dir) not in res.text
 
 
 def test_cors_preflight_allows_only_pinned_origin(client):
