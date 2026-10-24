@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { load } = require("./load");
 
-function setup({ token = "tok", audible = true, contexts = [], status = { tabId: 7 }, lastError } = {}) {
+function setup({ token = "tok", audible = true, contexts = [], status = { tabId: 7, vocals: true }, lastError } = {}) {
   const log = { badge: [], title: [], options: 0, offscreen: [], sent: [], session: [], removed: [] };
   const h = {};
   const chrome = {
@@ -69,13 +69,18 @@ test("start reuses existing offscreen doc", async () => {
 
 test("get-status without offscreen doc reports not capturing", async () => {
   const { ask, log } = setup();
-  assert.deepEqual(await ask({ type: "get-status" }), { tabId: null, error: null });
+  assert.deepEqual(await ask({ type: "get-status" }), { tabId: null, error: null, vocals: null });
   assert.strictEqual(log.sent.length, 0);
 });
 
-test("get-status with offscreen doc returns capturing tab and stored error", async () => {
+test("get-status with offscreen doc returns capturing tab, vocals state and stored error", async () => {
   const { ask } = setup({ contexts: [{}], lastError: "boom" });
-  assert.deepEqual(await ask({ type: "get-status" }), { tabId: 7, error: "boom" });
+  assert.deepEqual(await ask({ type: "get-status" }), { tabId: 7, error: "boom", vocals: true });
+});
+
+test("get-status after capture stopped reports no vocals state", async () => {
+  const { ask } = setup({ contexts: [{}], status: { tabId: undefined, vocals: false } });
+  assert.deepEqual(await ask({ type: "get-status" }), { tabId: null, error: null, vocals: null });
 });
 
 test("backend-error auth sets badge and opens options", () => {
@@ -96,5 +101,6 @@ test("backend-error unreachable sets badge only", () => {
 test("other messages ignored", () => {
   const { h, log } = setup();
   assert.strictEqual(h.message({ type: "stream-id" }, {}, () => {}), undefined);
+  assert.strictEqual(h.message({ type: "set-vocals", on: true }, {}, () => {}), undefined);
   assert.deepEqual(log.badge, []);
 });

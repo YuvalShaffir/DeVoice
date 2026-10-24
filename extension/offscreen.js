@@ -1,7 +1,9 @@
 const BACKEND = "http://127.0.0.1:8000";
 const DEFAULT_GAINS = { vocals: 0, no_vocals: 1};
+const FADE_SECONDS = 0.05;
 
 let mixerCtx;
+let vocalsOn = false;
 const stemGains = {};
 
 function buildMixer() {
@@ -14,11 +16,24 @@ function buildMixer() {
     }
 }
 
+function setVocals(on) {
+    if (!mixerCtx) return;
+    vocalsOn = on;
+    const gain = stemGains.vocals.gain;
+    const now = mixerCtx.currentTime;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(on ? 1 : 0, now + FADE_SECONDS);
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.type === "stream-id") {
         void startCapture(msg.streamId, msg.token, msg.tabId);
     } else if (msg.type === "capture-status") {
-        sendResponse({tabId: captureTabId});
+        sendResponse({tabId: captureTabId, vocals: vocalsOn});
+    } else if (msg.type === "set-vocals") {
+        setVocals(msg.on);
+        sendResponse({ok: true});
     } else if (msg.type === "stop-capture") {
         void stopCapture().then(() => sendResponse({ok: true}));
         return true;
@@ -36,6 +51,7 @@ async function stopCapture() {
     await captureCtx?.close();
     await mixerCtx?.close();
     captureCtx = mixerCtx = processorNode = captureStream = captureTabId = undefined;
+    vocalsOn = false;
     ready.clear();
     nextIndex = 1;
     chunkIndex = 0;

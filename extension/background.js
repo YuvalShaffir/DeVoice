@@ -63,7 +63,8 @@ async function getStatus() {
     const capturing = (await offscreenContexts()).length > 0
         ? await chrome.runtime.sendMessage({type: "capture-status"})
         : null;
-    return {tabId: capturing?.tabId ?? null, error: lastError ?? null};
+    const tabId = capturing?.tabId ?? null;
+    return {tabId, error: lastError ?? null, vocals: tabId === null ? null : capturing.vocals};
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
