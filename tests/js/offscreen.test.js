@@ -7,9 +7,15 @@ const tick = () => new Promise((r) => setImmediate(r));
 function setup({ fetchImpl } = {}) {
   const log = { sent: [], fetches: [], audios: [], closed: 0, trackStops: 0, revoked: [] };
   const h = {};
-  const node = () => ({ connect() {}, disconnect() {}, gain: { value: 1 } });
+  const param = () => ({
+    value: 1, ramps: [],
+    cancelScheduledValues() {},
+    setValueAtTime(v) { this.value = v; },
+    linearRampToValueAtTime(v, t) { this.ramps.push([v, t]); },
+  });
+  const node = () => ({ connect() {}, disconnect() {}, gain: param() });
   class AudioContext {
-    constructor() { this.destination = {}; this.audioWorklet = { addModule: async () => {} }; }
+    constructor() { this.destination = {}; this.currentTime = 10; this.audioWorklet = { addModule: async () => {} }; }
     createGain() { return node(); }
     createMediaStreamSource() { return node(); }
     createMediaElementSource() { return node(); }
@@ -44,7 +50,8 @@ function setup({ fetchImpl } = {}) {
     URL: { createObjectURL: () => `blob:${urlId++}`, revokeObjectURL: (u) => log.revoked.push(u) },
   };
   const env = load("offscreen.js", g);
-  return { ...env, h, log };
+  const ask = (msg) => new Promise((resolve) => h.message(msg, {}, resolve));
+  return { ...env, h, log, ask };
 }
 
 const json = (body, status = 200) => ({ status, ok: status < 400, json: async () => body });
@@ -60,6 +67,8 @@ async function start(env) {
   await tick();
 }
 
+const gain = (env, stem) => env.run(`stemGains.${stem}.gain`);
+
 const chunk = (env, index = 1) => {
   const left = new Float32Array([0, 0.5, -0.5, 2, -2]);
   env.run("processorNode").port.onmessage({ data: { left, right: left, sampleRate: 100 } });
@@ -67,12 +76,12 @@ const chunk = (env, index = 1) => {
 
 test("capture-status reports capturing tab, stop-capture stops and clears it", async () => {
   const env = setup({ fetchImpl: happyFetch });
-  const ask = (msg) => new Promise((resolve) => env.h.message(msg, {}, resolve));
-  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: undefined });
+  const { ask } = env;
+  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: undefined, vocals: false });
   await start(env);
-  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: 5 });
+  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: 5, vocals: false });
   assert.deepEqual(await ask({ type: "stop-capture" }), { ok: true });
-  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: undefined });
+  assert.deepEqual(await ask({ type: "capture-status" }), { tabId: undefined, vocals: false });
   assert.strictEqual(env.log.trackStops, 1);
 });
 
@@ -180,4 +189,70 @@ test("encodeWav writes stereo 16-bit PCM header and clamps", async () => {
   assert.strictEqual(view.getInt16(44, true), 0x7fff);
   assert.strictEqual(view.getInt16(48, true), -0x8000);
   assert.strictEqual(view.getInt16(54, true), -0x8000);
+});
+
+test("set-vocals fades the vocals stem in and out over 50 ms, music untouched", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  assert.strictEqual(gain(env, "vocals").value, 0);
+
+  assert.deepEqual(await env.ask({ type: "set-vocals", on: true }), { ok: true });
+  assert.deepEqual(gain(env, "vocals").ramps.at(-1), [1, 10.05]);
+
+  await env.ask({ type: "set-vocals", on: false });
+  assert.deepEqual(gain(env, "vocals").ramps.at(-1), [0, 10.05]);
+  assert.deepEqual(gain(env, "no_vocals").ramps, []);
+});
+
+test("capture-status reports the vocals state; last toggle wins", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  await env.ask({ type: "set-vocals", on: true });
+  assert.deepEqual(await env.ask({ type: "capture-status" }), { tabId: 5, vocals: true });
+  await env.ask({ type: "set-vocals", on: false });
+  assert.deepEqual(await env.ask({ type: "capture-status" }), { tabId: 5, vocals: false });
+});
+
+test("every new capture Session starts with vocals removed", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  await env.ask({ type: "set-vocals", on: true });
+  await env.ask({ type: "stop-capture" });
+  await start(env);
+  assert.strictEqual(gain(env, "vocals").value, 0);
+  assert.deepEqual(await env.ask({ type: "capture-status" }), { tabId: 5, vocals: false });
+});
+
+test("set-vocals without capture is a no-op", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  assert.deepEqual(await env.ask({ type: "set-vocals", on: true }), { ok: true });
+  assert.deepEqual(await env.ask({ type: "capture-status" }), { tabId: undefined, vocals: false });
+});
+
+test("set-vocals after stop-capture is a no-op", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  await env.ask({ type: "stop-capture" });
+  assert.deepEqual(await env.ask({ type: "set-vocals", on: true }), { ok: true });
+  assert.deepEqual(await env.ask({ type: "capture-status" }), { tabId: undefined, vocals: false });
+});
+
+test("set-vocals racing stop-capture leaves vocals reset", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  const stopped = env.ask({ type: "stop-capture" });
+  assert.deepEqual(await env.ask({ type: "set-vocals", on: true }), { ok: true });
+  await stopped;
+  assert.deepEqual(await env.ask({ type: "capture-status" }), { tabId: undefined, vocals: false });
+});
+
+test("set-vocals mid-chunk fades the live mix without restarting capture", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  env.run("enqueue(1, {vocals: {}, no_vocals: {}})");
+  assert.strictEqual(env.run("playing"), true);
+  await env.ask({ type: "set-vocals", on: true });
+  assert.deepEqual(gain(env, "vocals").ramps, [[1, 10.05]]);
+  assert.strictEqual(env.run("playing"), true);
+  assert.strictEqual(env.log.closed, 0);
 });
