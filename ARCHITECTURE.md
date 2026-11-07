@@ -5,7 +5,7 @@ DeVoice removes vocals from Chrome tab audio in near real time.
 ## Components
 
 - `extension/` — Chrome MV3 extension. `background.js` (service worker) starts tab capture on toolbar click and hands the stream id to `offscreen.js`. An AudioWorklet (`capture-processor.js`) cuts 6 s stereo chunks. `offscreen.js` uploads chunks to the backend, fetches stems, and plays them through per-stem gain nodes. The popup's Vocals switch sends `set-vocals` to fade the vocals gain live.
-- `backend/` — FastAPI app on `127.0.0.1:8000`. `server.py` exposes `POST /separate` and `GET /stem/{hash}/{stem}`; `separation.py` runs Demucs (`htdemucs`); `auth.py` gates every route by `X-Auth-Token`; stems are held in memory by SHA-256 of the upload and dropped once fetched.
+- `backend/` — FastAPI app on `127.0.0.1:8000`. `server.py` exposes `POST /separate` and `GET /stem/{hash}/{stem}`; `separation.py` runs Demucs (`htdemucs`); `guard.py` (ASGI middleware) checks `Host`, `X-Auth-Token` and body size on every request before the body is read; `auth.py` loads the token; stems are held in memory by SHA-256 of the upload and dropped once fetched.
 - `tests/` — pytest for backend and static extension checks; `tests/js/` for extension behavior.
 - `scripts/` — repo tooling (pre-commit hooks).
 
@@ -15,4 +15,4 @@ tab audio → worklet chunk (6 s WAV) → `POST /separate` → `{id, stems}` →
 
 ## Trust
 
-Backend accepts only the extension origin (CORS) and a shared token generated at `backend/.auth_token`, pasted into the extension's options page.
+Backend accepts only the extension origin (CORS) and a shared token generated at `backend/.auth_token`, pasted into the extension's options page. Requests with a `Host` other than `127.0.0.1` (DNS rebinding), a wrong token, or a body over 2 MB are rejected before any body byte is read.

@@ -2,11 +2,12 @@ import hashlib
 from collections.abc import Callable
 from typing import Annotated
 
-from auth import make_require_token
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from api import SEPARATE_PATH, STEM_PATH, TOKEN_HEADER
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from guard import RequestGuard
 from starlette.concurrency import run_in_threadpool
 from stems import STEMS
 
@@ -19,20 +20,21 @@ def create_app(
     pending: dict[str, dict[str, bytes]] = {}
 
     app = FastAPI(
-        dependencies=[Depends(make_require_token(token))],
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
     )
 
+    # Added first so CORS wraps it: CORS answers preflights and decorates guard errors.
+    app.add_middleware(RequestGuard, token=token)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[extension_origin],
         allow_methods=["GET", "POST"],
-        allow_headers=["X-Auth-Token", "Content-Type"],
+        allow_headers=[TOKEN_HEADER, "Content-Type"],
     )
 
-    @app.post("/separate")
+    @app.post(SEPARATE_PATH)
     async def seperate_endpoint(file: UploadFile) -> dict:
         data = await file.read()
         content_hash = hashlib.sha256(data).hexdigest()
@@ -42,7 +44,7 @@ def create_app(
         return {"id": content_hash, "stems": STEMS}
 
     @app.get(
-        "/stem/{content_hash}/{stem}",
+        STEM_PATH,
         responses={
             404: {
                 "description": "Unknown stem, or no pending result for this hash (stems are served once)"
