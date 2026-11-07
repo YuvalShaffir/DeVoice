@@ -3,6 +3,8 @@ const SEPARATE_URL = `${BACKEND}/separate`;
 const DEFAULT_GAINS = { vocals: 0, no_vocals: 1};
 const FADE_SECONDS = 0.05;
 const WAV_TYPE = "audio/wav";
+// Fixed so a 6 s chunk fits the backend's 2 MB / 48 kHz limits on any device.
+const CAPTURE_SAMPLE_RATE = 48000;
 
 let mixerCtx;
 let vocalsOn = false;
@@ -76,7 +78,7 @@ async function startCapture(streamId, token, tabId) {
     buildMixer();
     await mixerCtx.resume();
 
-    captureCtx = new AudioContext();
+    captureCtx = new AudioContext({sampleRate: CAPTURE_SAMPLE_RATE});
     const source = captureCtx.createMediaStreamSource(captureStream);
 
     await captureCtx.audioWorklet.addModule("capture-processor.js");

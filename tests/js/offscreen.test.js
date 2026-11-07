@@ -3,6 +3,7 @@ const assert = require("node:assert");
 const { load } = require("./load");
 
 const tick = () => new Promise((r) => setImmediate(r));
+const WAV_RATE_OFFSET = 24;
 
 function setup({ fetchImpl } = {}) {
   const log = { sent: [], fetches: [], audios: [], closed: 0, trackStops: 0, revoked: [] };
@@ -15,7 +16,7 @@ function setup({ fetchImpl } = {}) {
   });
   const node = () => ({ connect() {}, disconnect() {}, gain: param() });
   class AudioContext {
-    constructor() { this.destination = {}; this.currentTime = 10; this.audioWorklet = { addModule: async () => {} }; }
+    constructor(options) { this.options = options; this.destination = {}; this.currentTime = 10; this.audioWorklet = { addModule: async () => {} }; }
     createGain() { return node(); }
     createMediaStreamSource() { return node(); }
     createMediaElementSource() { return node(); }
@@ -114,6 +115,33 @@ test("chunk is sent as a raw audio/wav body with token, stems fetched and played
   assert.strictEqual(env.run("playing"), false);
 });
 
+test("capture context runs at the fixed capture rate; mixer keeps the device rate", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  assert.deepEqual(env.run("captureCtx").options, { sampleRate: env.run("CAPTURE_SAMPLE_RATE") });
+  assert.strictEqual(env.run("mixerCtx").options, undefined);
+});
+
+test("restarted capture creates a new capture context at the same rate", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  const first = env.run("captureCtx");
+  await start(env);
+  assert.notStrictEqual(env.run("captureCtx"), first);
+  assert.deepEqual(env.run("captureCtx").options, { sampleRate: env.run("CAPTURE_SAMPLE_RATE") });
+});
+
+test("uploaded WAV header carries the worklet's sample rate", async () => {
+  const env = setup({ fetchImpl: happyFetch });
+  await start(env);
+  const rate = env.run("CAPTURE_SAMPLE_RATE");
+  const left = new Float32Array([0, 0.5]);
+  env.run("processorNode").port.onmessage({ data: { left, right: left, sampleRate: rate } });
+  await tick();
+  const header = new DataView(await env.log.fetches[0].opts.body.arrayBuffer());
+  assert.strictEqual(header.getUint32(WAV_RATE_OFFSET, true), rate);
+});
+
 test("out-of-order chunks play in order; failed chunk skipped", async () => {
   const env = setup({ fetchImpl: happyFetch });
   await start(env);
@@ -198,7 +226,7 @@ test("encodeWav writes stereo 16-bit PCM header and clamps", async () => {
   const blob = env.run("encodeWav(new Float32Array([1, -1, 2]), new Float32Array([0, 0, -2]), 8000)");
   const view = new DataView(await blob.arrayBuffer());
   assert.strictEqual(blob.size, 44 + 3 * 4);
-  assert.strictEqual(view.getUint32(24, true), 8000);
+  assert.strictEqual(view.getUint32(WAV_RATE_OFFSET, true), 8000);
   assert.strictEqual(view.getUint16(22, true), 2);
   assert.strictEqual(view.getInt16(44, true), 0x7fff);
   assert.strictEqual(view.getInt16(48, true), -0x8000);
