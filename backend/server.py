@@ -4,6 +4,7 @@ from typing import Annotated
 
 from api import (
     CONTENT_TYPE_HEADER,
+    INVALID_AUDIO,
     SEPARATE_PATH,
     STEM_PATH,
     TOKEN_HEADER,
@@ -16,6 +17,7 @@ from fastapi.responses import Response
 from guard import RequestGuard
 from starlette.concurrency import run_in_threadpool
 from stems import STEMS
+from wav import InvalidWav, validate_wav
 
 
 def create_app(
@@ -47,6 +49,10 @@ def create_app(
             raise HTTPException(415, f"{CONTENT_TYPE_HEADER} must be {WAV_MEDIA_TYPE}")
         # Raw body, not multipart: Starlette spools multipart uploads over 1 MB to disk.
         data = await request.body()
+        try:
+            validate_wav(data)
+        except InvalidWav:
+            raise HTTPException(400, INVALID_AUDIO) from None
         content_hash = hashlib.sha256(data).hexdigest()
         if content_hash not in pending:
             # Calling threadpool because demucs is GPU intensive and blocks event loop.

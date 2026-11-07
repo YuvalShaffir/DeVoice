@@ -7,6 +7,8 @@ import pytest
 from api import CONTENT_TYPE_HEADER, SEPARATE_PATH, WAV_MEDIA_TYPE
 from api_client import auth_headers, fetch_stem, upload
 from stems import STEMS
+from wav import MAX_RATE, MAX_SECONDS
+from wav_factory import make_wav
 
 TEMPFILE_FACTORIES = (
     "SpooledTemporaryFile",
@@ -17,8 +19,8 @@ TEMPFILE_FACTORIES = (
 )
 # Characters in an `open()` mode that create or modify a file.
 WRITE_MODE_FLAGS = "wax+"
-# Above Starlette's 1 MB spool-to-disk threshold for multipart uploads.
-SPOOL_SIZED_BODY = b"\0" * 1_500_000
+# A full 6 s stereo chunk, above Starlette's 1 MB spool-to-disk threshold for multipart.
+SPOOL_SIZED_BODY = make_wav(frames=MAX_SECONDS * MAX_RATE)
 
 
 @pytest.fixture

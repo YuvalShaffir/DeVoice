@@ -9,17 +9,19 @@ from api import (
     extension_origin,
 )
 from guard import LOOPBACK_HOST
+from wav_factory import make_wav
 
 TOKEN = "test-token"
 ORIGIN = extension_origin(secrets.token_hex(16))
 BASE_URL = f"http://{LOOPBACK_HOST}"
+VALID_WAV = make_wav()
 
 
 def auth_headers(extra=None):
     return {TOKEN_HEADER: TOKEN, **(extra or {})}
 
 
-def upload(client, headers=None, body=b"fake-wav"):
+def upload(client, headers=None, body=VALID_WAV):
     headers = {CONTENT_TYPE_HEADER: WAV_MEDIA_TYPE, **(headers or {})}
     return client.post(SEPARATE_PATH, content=body, headers=headers)
 

@@ -2,16 +2,21 @@ import asyncio
 
 import pytest
 from api import CONTENT_TYPE_HEADER, SEPARATE_PATH, TOKEN_HEADER, WAV_MEDIA_TYPE
-from api_client import ORIGIN, TOKEN, auth_headers, upload
+from api_client import ORIGIN, TOKEN, VALID_WAV, auth_headers, upload
 from guard import LOOPBACK_HOST, MAX_BODY
+from wav_factory import CHUNK_HEADER_SIZE, make_wav
 
 LOOPBACK_WITH_PORT = f"{LOOPBACK_HOST}:8000"
 CHUNK = 64 * 1024
 
 
-def chunked(size):
-    body = b"\0" * size
-    return [body[i : i + CHUNK] for i in range(0, size, CHUNK)]
+def chunked(body):
+    return [body[i : i + CHUNK] for i in range(0, len(body), CHUNK)]
+
+
+def wav_of_size(size):
+    # VALID_WAV padded with a JUNK chunk to exactly `size` bytes.
+    return make_wav(junk_size=size - len(VALID_WAV) - CHUNK_HEADER_SIZE)
 
 
 def loopback_auth(extra=None):
@@ -84,7 +89,7 @@ def test_empty_or_wrong_token_of_any_length_rejected(client, token):
 
 
 def test_upload_without_content_length_rejected(app):
-    assert call_asgi(app, loopback_auth(), chunked(1000))[0] == 411
+    assert call_asgi(app, loopback_auth(), chunked(VALID_WAV))[0] == 411
 
 
 @pytest.mark.parametrize("length", ["abc", "-1"])
@@ -99,14 +104,14 @@ def test_declared_length_over_limit_rejected(app):
 
 def test_body_exactly_at_limit_accepted(app, separated):
     headers = loopback_auth({"Content-Length": str(MAX_BODY)})
-    status, _ = call_asgi(app, headers, chunked(MAX_BODY))
+    status, _ = call_asgi(app, headers, chunked(wav_of_size(MAX_BODY)))
     assert status == 200
     assert len(separated) == 1
 
 
 def test_body_streamed_past_limit_rejected(app, separated):
     headers = loopback_auth({"Content-Length": "100"})
-    status, _ = call_asgi(app, headers, chunked(MAX_BODY + CHUNK))
+    status, _ = call_asgi(app, headers, chunked(wav_of_size(MAX_BODY + CHUNK)))
     assert status == 413
     assert separated == []
 
