@@ -1,6 +1,13 @@
 import secrets
 
-from api import SEPARATE_PATH, STEM_PATH, TOKEN_HEADER, extension_origin
+from api import (
+    CONTENT_TYPE_HEADER,
+    SEPARATE_PATH,
+    STEM_PATH,
+    TOKEN_HEADER,
+    WAV_MEDIA_TYPE,
+    extension_origin,
+)
 from guard import LOOPBACK_HOST
 
 TOKEN = "test-token"
@@ -12,10 +19,9 @@ def auth_headers(extra=None):
     return {TOKEN_HEADER: TOKEN, **(extra or {})}
 
 
-def upload(client, headers=None):
-    return client.post(
-        SEPARATE_PATH, files={"file": ("c.wav", b"fake-wav")}, headers=headers or {}
-    )
+def upload(client, headers=None, body=b"fake-wav"):
+    headers = {CONTENT_TYPE_HEADER: WAV_MEDIA_TYPE, **(headers or {})}
+    return client.post(SEPARATE_PATH, content=body, headers=headers)
 
 
 def fetch_stem(client, content_hash, stem, headers=None):

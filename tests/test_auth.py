@@ -1,7 +1,7 @@
 import hashlib
 
 import pytest
-from api import SEPARATE_PATH, TOKEN_HEADER
+from api import CONTENT_TYPE_HEADER, SEPARATE_PATH, TOKEN_HEADER
 from api_client import ORIGIN, auth_headers, fetch_stem, upload
 from auth import load_token
 from stems import VOCALS
@@ -15,7 +15,8 @@ def preflight(client, origin):
         headers={
             "Origin": origin,
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": TOKEN_HEADER,
+            # What the extension's raw WAV upload makes the browser ask for.
+            "Access-Control-Request-Headers": f"{TOKEN_HEADER}, {CONTENT_TYPE_HEADER}",
         },
     )
 

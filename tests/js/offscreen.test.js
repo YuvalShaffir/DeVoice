@@ -93,14 +93,18 @@ test("ignores unrelated messages", async () => {
   assert.strictEqual(env.run("processorNode"), undefined);
 });
 
-test("chunk is sent with token, stems fetched and played in order", async () => {
+test("chunk is sent as a raw audio/wav body with token, stems fetched and played in order", async () => {
   const env = setup({ fetchImpl: happyFetch });
   await start(env);
   chunk(env);
   await tick(); await tick();
 
-  assert.strictEqual(env.log.fetches[0].url, "http://127.0.0.1:8000/separate");
-  assert.strictEqual(env.log.fetches[0].opts.headers["X-Auth-Token"], "tok");
+  const upload = env.log.fetches[0];
+  assert.strictEqual(upload.url, env.run("SEPARATE_URL"));
+  assert.strictEqual(upload.opts.headers["X-Auth-Token"], "tok");
+  assert.strictEqual(upload.opts.headers["Content-Type"], env.run("WAV_TYPE"));
+  assert.ok(upload.opts.body instanceof Blob, "body is the raw WAV Blob, not FormData");
+  assert.strictEqual(upload.opts.body.type, env.run("WAV_TYPE"));
   assert.strictEqual(env.log.fetches.length, 3);
   assert.strictEqual(env.log.audios.length, 2);
 

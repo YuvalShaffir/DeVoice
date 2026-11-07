@@ -9,4 +9,4 @@ cd backend
 EXTENSION_ID=<your-extension-id> uv run uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-`EXTENSION_ID` is the ID of the loaded Chrome extension (`chrome://extensions`). Stems are held in memory and never written to disk.
+`EXTENSION_ID` is the ID of the loaded Chrome extension (`chrome://extensions`). Uploaded chunks and stems are held in memory and never written to disk.

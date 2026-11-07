@@ -1,34 +1,27 @@
 import asyncio
 
 import pytest
-from api import SEPARATE_PATH, TOKEN_HEADER
+from api import CONTENT_TYPE_HEADER, SEPARATE_PATH, TOKEN_HEADER, WAV_MEDIA_TYPE
 from api_client import ORIGIN, TOKEN, auth_headers, upload
 from guard import LOOPBACK_HOST, MAX_BODY
 
 LOOPBACK_WITH_PORT = f"{LOOPBACK_HOST}:8000"
-BOUNDARY = "x"
-MULTIPART = f"multipart/form-data; boundary={BOUNDARY}"
-PART_HEAD = (
-    f"--{BOUNDARY}\r\n"
-    'Content-Disposition: form-data; name="file"; filename="c.wav"\r\n'
-    "Content-Type: application/octet-stream\r\n\r\n"
-).encode()
-PART_TAIL = f"\r\n--{BOUNDARY}--\r\n".encode()
 CHUNK = 64 * 1024
 
 
-def multipart_body(total_size):
-    """A valid single-file multipart body of exactly `total_size` bytes."""
-    padding = total_size - len(PART_HEAD) - len(PART_TAIL)
-    return PART_HEAD + b"\0" * padding + PART_TAIL
-
-
-def chunked(body):
-    return [body[i : i + CHUNK] for i in range(0, len(body), CHUNK)]
+def chunked(size):
+    body = b"\0" * size
+    return [body[i : i + CHUNK] for i in range(0, size, CHUNK)]
 
 
 def loopback_auth(extra=None):
-    return auth_headers({"Host": LOOPBACK_WITH_PORT, **(extra or {})})
+    return auth_headers(
+        {
+            "Host": LOOPBACK_WITH_PORT,
+            CONTENT_TYPE_HEADER: WAV_MEDIA_TYPE,
+            **(extra or {}),
+        }
+    )
 
 
 def call_asgi(app, headers, chunks=()):
@@ -91,7 +84,7 @@ def test_empty_or_wrong_token_of_any_length_rejected(client, token):
 
 
 def test_upload_without_content_length_rejected(app):
-    assert call_asgi(app, loopback_auth(), chunked(multipart_body(1000)))[0] == 411
+    assert call_asgi(app, loopback_auth(), chunked(1000))[0] == 411
 
 
 @pytest.mark.parametrize("length", ["abc", "-1"])
@@ -105,17 +98,15 @@ def test_declared_length_over_limit_rejected(app):
 
 
 def test_body_exactly_at_limit_accepted(app, separated):
-    headers = loopback_auth(
-        {"Content-Length": str(MAX_BODY), "Content-Type": MULTIPART}
-    )
-    status, _ = call_asgi(app, headers, chunked(multipart_body(MAX_BODY)))
+    headers = loopback_auth({"Content-Length": str(MAX_BODY)})
+    status, _ = call_asgi(app, headers, chunked(MAX_BODY))
     assert status == 200
     assert len(separated) == 1
 
 
 def test_body_streamed_past_limit_rejected(app, separated):
-    headers = loopback_auth({"Content-Length": "100", "Content-Type": MULTIPART})
-    status, _ = call_asgi(app, headers, chunked(multipart_body(MAX_BODY + CHUNK)))
+    headers = loopback_auth({"Content-Length": "100"})
+    status, _ = call_asgi(app, headers, chunked(MAX_BODY + CHUNK))
     assert status == 413
     assert separated == []
 

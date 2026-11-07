@@ -2,8 +2,14 @@ import hashlib
 from collections.abc import Callable
 from typing import Annotated
 
-from api import SEPARATE_PATH, STEM_PATH, TOKEN_HEADER
-from fastapi import FastAPI, HTTPException, UploadFile
+from api import (
+    CONTENT_TYPE_HEADER,
+    SEPARATE_PATH,
+    STEM_PATH,
+    TOKEN_HEADER,
+    WAV_MEDIA_TYPE,
+)
+from fastapi import FastAPI, HTTPException, Request
 from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -31,12 +37,16 @@ def create_app(
         CORSMiddleware,
         allow_origins=[extension_origin],
         allow_methods=["GET", "POST"],
-        allow_headers=[TOKEN_HEADER, "Content-Type"],
+        allow_headers=[TOKEN_HEADER, CONTENT_TYPE_HEADER],
     )
 
     @app.post(SEPARATE_PATH)
-    async def seperate_endpoint(file: UploadFile) -> dict:
-        data = await file.read()
+    async def separate_endpoint(request: Request) -> dict:
+        media_type = request.headers.get(CONTENT_TYPE_HEADER, "").split(";")[0]
+        if media_type.strip().lower() != WAV_MEDIA_TYPE:
+            raise HTTPException(415, f"{CONTENT_TYPE_HEADER} must be {WAV_MEDIA_TYPE}")
+        # Raw body, not multipart: Starlette spools multipart uploads over 1 MB to disk.
+        data = await request.body()
         content_hash = hashlib.sha256(data).hexdigest()
         if content_hash not in pending:
             # Calling threadpool because demucs is GPU intensive and blocks event loop.
@@ -63,6 +73,6 @@ def create_app(
             raise HTTPException(404, "Stem not found")
         if not stems:
             del pending[content_hash]
-        return Response(wav_bytes, media_type="audio/wav")
+        return Response(wav_bytes, media_type=WAV_MEDIA_TYPE)
 
     return app

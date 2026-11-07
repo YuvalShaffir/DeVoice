@@ -10,7 +10,6 @@ dependencies = [
     "httpx>=0.28.1",
     "numpy>=2.5.3",
     "pytest>=9.1.1",
-    "python-multipart>=0.0.32",
     "torch>=2.0.0",
     "uvicorn>=0.54.0",
 ]

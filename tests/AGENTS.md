@@ -2,6 +2,7 @@
 
 - `test_auth.py` — token load/generation and `X-Auth-Token` / CORS enforcement on the API (fake `separate`).
 - `test_guard.py` — `RequestGuard` via `create_app`: Host, token, `Content-Length` and streamed-size checks; raw ASGI calls prove rejected requests never read the body.
+- `test_upload.py` — `POST /separate` accepts only a raw `audio/wav` body (415 otherwise); upload + stem round trip under disk-write traps (tempfile factories, write-mode `open`) proves audio stays in RAM.
 - `test_separation.py` — `backend/separation.py` unit tests with Demucs `Separator` faked.
 - `test_separation_integration.py` — real Demucs on a synthetic clip; marked `slow`.
 - `test_manifest.py` — static checks on `extension/manifest.json`.

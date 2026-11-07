@@ -11,7 +11,7 @@ DeVoice removes vocals from Chrome tab audio in near real time.
 
 ## Flow
 
-tab audio → worklet chunk (6 s WAV) → `POST /separate` → `{id, stems}` → `GET /stem/{id}/{stem}` per stem → gain-mixed playback (vocals 0 by default, 1 while the Vocals switch is on; no_vocals 1), chunks played in order.
+tab audio → worklet chunk (6 s WAV) → `POST /separate` (raw `audio/wav` body, kept in RAM) → `{id, stems}` → `GET /stem/{id}/{stem}` per stem → gain-mixed playback (vocals 0 by default, 1 while the Vocals switch is on; no_vocals 1), chunks played in order.
 
 ## Trust
 

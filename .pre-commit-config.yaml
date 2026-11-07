@@ -25,6 +25,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: npm-test
+        name: npm test
+        entry: npm test
+        language: system
+        pass_filenames: false
+        files: ^(extension|tests/js)/.*\.js$
+
       - id: agent-docs
         name: agent docs present
         entry: uv run python scripts/check_agent_docs.py
