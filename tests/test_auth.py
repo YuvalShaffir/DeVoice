@@ -1,44 +1,22 @@
 import hashlib
 
 import pytest
+from api import CONTENT_TYPE_HEADER, SEPARATE_PATH, TOKEN_HEADER
+from api_client import ORIGIN, auth_headers, fetch_stem, upload
 from auth import load_token
-from fastapi.testclient import TestClient
-from server import create_app
-from stems import NO_VOCALS, VOCALS
+from stems import VOCALS
 
-TOKEN = "test-token"
-ORIGIN = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 HASH = hashlib.sha256(b"cached").hexdigest()
-
-
-def fake_separate(data: bytes) -> dict[str, bytes]:
-    return {VOCALS: b"v", NO_VOCALS: b"n"}
-
-
-@pytest.fixture
-def client():
-    return TestClient(
-        create_app(
-            token=TOKEN,
-            separate=fake_separate,
-            extension_origin=ORIGIN,
-        )
-    )
-
-
-def upload(client, headers=None):
-    return client.post(
-        "/separate", files={"file": ("c.wav", b"fake-wav")}, headers=headers or {}
-    )
 
 
 def preflight(client, origin):
     return client.options(
-        "/separate",
+        SEPARATE_PATH,
         headers={
             "Origin": origin,
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "x-auth-token",
+            # What the extension's raw WAV upload makes the browser ask for.
+            "Access-Control-Request-Headers": f"{TOKEN_HEADER}, {CONTENT_TYPE_HEADER}",
         },
     )
 
@@ -48,43 +26,40 @@ def test_separate_without_token_rejected(client):
 
 
 def test_separate_with_wrong_token_rejected(client):
-    assert upload(client, {"X-Auth-Token": "nope"}).status_code == 403
+    assert upload(client, {TOKEN_HEADER: "nope"}).status_code == 403
 
 
 def test_separate_with_correct_token_accepted(client):
-    res = upload(client, {"X-Auth-Token": TOKEN})
+    res = upload(client, auth_headers())
     assert res.status_code == 200
     assert set(res.json()) == {"id", "stems"}
 
 
 def test_stem_with_correct_token_accepted(client):
-    id_ = upload(client, {"X-Auth-Token": TOKEN}).json()["id"]
-    res = client.get(f"/stem/{id_}/vocals", headers={"X-Auth-Token": TOKEN})
+    id_ = upload(client, auth_headers()).json()["id"]
+    res = fetch_stem(client, id_, VOCALS, auth_headers())
     assert res.status_code == 200
     assert res.headers["content-type"] == "audio/wav"
     assert res.content == b"v"
 
 
 def test_stem_without_token_rejected(client):
-    id_ = upload(client, {"X-Auth-Token": TOKEN}).json()["id"]
-    assert client.get(f"/stem/{id_}/vocals").status_code == 403
+    id_ = upload(client, auth_headers()).json()["id"]
+    assert fetch_stem(client, id_, VOCALS).status_code == 403
 
 
 def test_stem_served_once_then_gone(client):
-    headers = {"X-Auth-Token": TOKEN}
-    id_ = upload(client, headers).json()["id"]
-    assert client.get(f"/stem/{id_}/vocals", headers=headers).status_code == 200
-    assert client.get(f"/stem/{id_}/vocals", headers=headers).status_code == 404
+    id_ = upload(client, auth_headers()).json()["id"]
+    assert fetch_stem(client, id_, VOCALS, auth_headers()).status_code == 200
+    assert fetch_stem(client, id_, VOCALS, auth_headers()).status_code == 404
 
 
 def test_unknown_stem_returns_404(client):
-    res = client.get(f"/stem/{HASH}/drums", headers={"X-Auth-Token": TOKEN})
-    assert res.status_code == 404
+    assert fetch_stem(client, HASH, "drums", auth_headers()).status_code == 404
 
 
 def test_unknown_hash_returns_404(client):
-    res = client.get(f"/stem/{HASH}/vocals", headers={"X-Auth-Token": TOKEN})
-    assert res.status_code == 404
+    assert fetch_stem(client, HASH, VOCALS, auth_headers()).status_code == 404
 
 
 def test_cors_preflight_allows_only_pinned_origin(client):

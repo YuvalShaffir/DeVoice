@@ -8,6 +8,6 @@
 
 ## Decisions
 
-- Backend is local-only and token-gated, origin-locked to the extension ID (`EXTENSION_ID` env).
+- Backend is local-only and token-gated, origin-locked to the extension ID derived from the manifest key, and refuses to run as root/Administrator.
 - Stems are never written to disk; each is held in memory until fetched once.
 - Extension scripts are plain browser scripts, no bundler.

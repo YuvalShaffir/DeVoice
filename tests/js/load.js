@@ -10,7 +10,7 @@ function load(name, globals = {}) {
   const file = path.join(EXTENSION_DIR, name);
   const ctx = vm.createContext({
     console: { log() {}, error() {} },
-    Float32Array, ArrayBuffer, DataView, Blob, FormData, URL, Math, Promise, Object, Error, TypeError, Array, Map,
+    Float32Array, ArrayBuffer, DataView, Blob, URL, Math, Promise, Object, Error, TypeError, Array, Map,
     ...globals,
   });
   vm.runInContext(fs.readFileSync(file, "utf8"), ctx, { filename: file });

@@ -1,6 +1,10 @@
 const BACKEND = "http://127.0.0.1:8000";
+const SEPARATE_URL = `${BACKEND}/separate`;
 const DEFAULT_GAINS = { vocals: 0, no_vocals: 1};
 const FADE_SECONDS = 0.05;
+const WAV_TYPE = "audio/wav";
+// Fixed so a 6 s chunk fits the backend's 2 MB / 48 kHz limits on any device.
+const CAPTURE_SAMPLE_RATE = 48000;
 
 let mixerCtx;
 let vocalsOn = false;
@@ -74,7 +78,7 @@ async function startCapture(streamId, token, tabId) {
     buildMixer();
     await mixerCtx.resume();
 
-    captureCtx = new AudioContext();
+    captureCtx = new AudioContext({sampleRate: CAPTURE_SAMPLE_RATE});
     const source = captureCtx.createMediaStreamSource(captureStream);
 
     await captureCtx.audioWorklet.addModule("capture-processor.js");
@@ -106,15 +110,12 @@ async function processChunk(index, left, right, rate, token) {
     const headers = {"X-Auth-Token": token};
 
     try {
-        const form = new FormData();
-        form.append("file", encodeWav(left, right, rate), "chunk.wav");
-
         const res = await fetch(
-            `${BACKEND}/separate`,
+            SEPARATE_URL,
             {
                 method: "POST",
-                body: form,
-                headers: headers
+                body: encodeWav(left, right, rate),
+                headers: {...headers, "Content-Type": WAV_TYPE}
             }
         )
         if (mySession !== session) return;
@@ -162,7 +163,7 @@ function encodeWav(left, right, sr) {
     view.setInt16(offset, l < 0 ? l * 0x8000 : l * 0x7fff, true); offset += 2;
     view.setInt16(offset, r < 0 ? r * 0x8000 : r * 0x7fff, true); offset += 2;
   }
-  return new Blob([buffer], { type: "audio/wav" });
+  return new Blob([buffer], { type: WAV_TYPE });
 }
 
 function fail(reason) {

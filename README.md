@@ -6,7 +6,7 @@ Real-time vocal removal for any Chrome tab - GPU-powered stem separation to help
 ```bash
 uv sync
 cd backend
-EXTENSION_ID=<your-extension-id> uv run uvicorn main:app --host 127.0.0.1 --port 8000
+uv run uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-`EXTENSION_ID` is the ID of the loaded Chrome extension (`chrome://extensions`). Stems are held in memory and never written to disk.
+The extension ID is derived from the pinned `key` in `extension/manifest.json`, so CORS matches the loaded extension with no configuration. Run it as a normal user: the backend refuses to start as root or Administrator. Uploaded chunks and stems are held in memory and never written to disk.
