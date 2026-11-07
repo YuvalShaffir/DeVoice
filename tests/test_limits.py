@@ -4,7 +4,14 @@ import time
 
 import httpx
 import pytest
-from api_client import BASE_URL, auth_headers, fetch_stem, upload
+from api_client import (
+    BASE_URL,
+    auth_headers,
+    crashing_separate,
+    fake_stems,
+    fetch_stem,
+    upload,
+)
 from fastapi.testclient import TestClient
 from limits import MAX_RUNNING, MAX_WAITING, RESULT_TTL_SECONDS
 from stems import NO_VOCALS, VOCALS
@@ -16,7 +23,6 @@ SHORT_TIMEOUT = 0.1
 SETTLE_SECONDS = 0.2
 OVERLAP_SECONDS = 0.05
 GIVE_UP_SECONDS = 5
-FAKE_STEMS = {VOCALS: b"v", NO_VOCALS: b"n"}
 BASE_FRAMES = 1000
 
 
@@ -40,7 +46,7 @@ class GatedSeparate:
         self.gate.wait(GIVE_UP_SECONDS)
         with self._lock:
             self._running -= 1
-        return FAKE_STEMS
+        return fake_stems()
 
 
 class FakeClock:
@@ -56,8 +62,6 @@ def distinct_wavs(count):
 
 
 def run_async(app, scenario):
-    """Run `scenario(client)` against `app` in one event loop."""
-
     async def main():
         transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
         async with httpx.AsyncClient(transport=transport, base_url=BASE_URL) as client:
@@ -146,8 +150,8 @@ def test_failing_separation_returns_500_and_frees_the_slot(make_app):
     def fails_once(data):
         calls.append(data)
         if len(calls) == 1:
-            raise RuntimeError("model crashed")
-        return FAKE_STEMS
+            return crashing_separate(data)
+        return fake_stems()
 
     async def scenario(client):
         failed = await upload(client, auth_headers())

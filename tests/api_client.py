@@ -9,12 +9,22 @@ from api import (
     extension_origin,
 )
 from guard import LOOPBACK_HOST
+from stems import NO_VOCALS, VOCALS
 from wav_factory import make_wav
 
 TOKEN = "test-token"
 ORIGIN = extension_origin(secrets.token_hex(16))
 BASE_URL = f"http://{LOOPBACK_HOST}"
 VALID_WAV = make_wav()
+
+
+def fake_stems():
+    # A fresh dict each call: serving a stem removes it from the result.
+    return {VOCALS: b"v", NO_VOCALS: b"n"}
+
+
+def crashing_separate(data):
+    raise RuntimeError("model crashed")
 
 
 def auth_headers(extra=None):

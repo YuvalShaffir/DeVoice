@@ -3,7 +3,7 @@ from pathlib import Path
 from api import extension_origin
 from auth import load_token
 from server import create_app
-from startup import extension_id_from_manifest, refuse_elevated
+from startup import MANIFEST_PATH, extension_id_from_manifest, refuse_elevated
 
 refuse_elevated()
 
@@ -11,10 +11,9 @@ refuse_elevated()
 from separation import separate
 
 HERE = Path(__file__).parent
-MANIFEST = HERE.parent / "extension" / "manifest.json"
 
 app = create_app(
     token=load_token(HERE / ".auth_token"),
     separate=separate,
-    extension_origin=extension_origin(extension_id_from_manifest(MANIFEST)),
+    extension_origin=extension_origin(extension_id_from_manifest(MANIFEST_PATH)),
 )

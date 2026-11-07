@@ -6,6 +6,7 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
+MANIFEST_PATH = Path(__file__).parents[1] / "extension" / "manifest.json"
 ID_LENGTH = 32
 # Chrome writes the ID's hex digits 0-f as the letters a-p.
 ID_FIRST_LETTER = "a"
@@ -19,20 +20,28 @@ def extension_id_from_manifest(path: Path) -> str:
 
 
 def _public_key(path: Path) -> bytes:
+    key = _read_manifest(path).get("key")
+    if key is None:
+        raise RuntimeError(f'{path} has no "key" to derive the extension ID')
     try:
-        key = json.loads(path.read_text())["key"]
         der = base64.b64decode(key, validate=True)
-    except FileNotFoundError:
-        raise RuntimeError(f"extension manifest not found at {path}") from None
-    except json.JSONDecodeError:
-        raise RuntimeError(f"{path} is not valid JSON") from None
-    except (KeyError, TypeError):
-        raise RuntimeError(f'{path} has no "key" to derive the extension ID') from None
-    except binascii.Error:
+    except (binascii.Error, TypeError):
         raise RuntimeError(f'{path} "key" is not valid base64') from None
     if not der:
         raise RuntimeError(f'{path} "key" is empty')
     return der
+
+
+def _read_manifest(path: Path) -> dict:
+    try:
+        manifest = json.loads(path.read_text())
+    except FileNotFoundError:
+        raise RuntimeError(f"extension manifest not found at {path}") from None
+    except OSError as exc:
+        raise RuntimeError(f"cannot read {path}: {exc.strerror}") from None
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise RuntimeError(f"{path} is not valid JSON") from None
+    return manifest if isinstance(manifest, dict) else {}
 
 
 def _is_admin() -> bool:

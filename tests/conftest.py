@@ -1,8 +1,8 @@
 import pytest
-from api_client import BASE_URL, ORIGIN, TOKEN
+from api_client import BASE_URL, ORIGIN, TOKEN, fake_stems
 from fastapi.testclient import TestClient
 from server import create_app
-from stems import NO_VOCALS, VOCALS
+from stems import Stems
 
 
 @pytest.fixture
@@ -13,11 +13,9 @@ def separated():
 
 @pytest.fixture
 def make_app(separated):
-    """Builds the app; keyword arguments override `separate` and the limits."""
-
-    def fake_separate(data: bytes) -> dict[str, bytes]:
+    def fake_separate(data: bytes) -> Stems:
         separated.append(data)
-        return {VOCALS: b"v", NO_VOCALS: b"n"}
+        return fake_stems()
 
     def build(separate=fake_separate, **limits):
         return create_app(

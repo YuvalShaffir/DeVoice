@@ -6,7 +6,9 @@ from typing import Annotated
 from api import (
     CONTENT_TYPE_HEADER,
     INVALID_AUDIO,
+    QUEUE_FULL,
     SEPARATE_PATH,
+    SEPARATION_TIMED_OUT,
     STEM_PATH,
     TOKEN_HEADER,
     WAV_MEDIA_TYPE,
@@ -25,9 +27,8 @@ from limits import (
     Results,
     SeparationQueue,
     SeparationTimeout,
-    Stems,
 )
-from stems import STEMS
+from stems import STEMS, Stems
 from wav import InvalidWav, validate_wav
 
 
@@ -80,9 +81,9 @@ def create_app(
             try:
                 results.add(content_hash, await queue.run(data))
             except QueueFull:
-                raise HTTPException(429, "separation queue full") from None
+                raise HTTPException(429, QUEUE_FULL) from None
             except SeparationTimeout:
-                raise HTTPException(504, "separation timed out") from None
+                raise HTTPException(504, SEPARATION_TIMED_OUT) from None
         return {"id": content_hash, "stems": STEMS}
 
     @app.get(

@@ -4,6 +4,7 @@ const { load } = require("./load");
 
 const tick = () => new Promise((r) => setImmediate(r));
 const WAV_RATE_OFFSET = 24;
+const DEVICE_RATE = 44100;
 
 function setup({ fetchImpl } = {}) {
   const log = { sent: [], fetches: [], audios: [], closed: 0, trackStops: 0, revoked: [] };
@@ -134,12 +135,11 @@ test("restarted capture creates a new capture context at the same rate", async (
 test("uploaded WAV header carries the worklet's sample rate", async () => {
   const env = setup({ fetchImpl: happyFetch });
   await start(env);
-  const rate = env.run("CAPTURE_SAMPLE_RATE");
   const left = new Float32Array([0, 0.5]);
-  env.run("processorNode").port.onmessage({ data: { left, right: left, sampleRate: rate } });
+  env.run("processorNode").port.onmessage({ data: { left, right: left, sampleRate: DEVICE_RATE } });
   await tick();
   const header = new DataView(await env.log.fetches[0].opts.body.arrayBuffer());
-  assert.strictEqual(header.getUint32(WAV_RATE_OFFSET, true), rate);
+  assert.strictEqual(header.getUint32(WAV_RATE_OFFSET, true), DEVICE_RATE);
 });
 
 test("out-of-order chunks play in order; failed chunk skipped", async () => {

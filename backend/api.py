@@ -4,6 +4,8 @@ TOKEN_HEADER = "X-Auth-Token"
 CONTENT_TYPE_HEADER = "Content-Type"
 WAV_MEDIA_TYPE = "audio/wav"
 INVALID_AUDIO = "invalid audio"
+QUEUE_FULL = "separation queue full"
+SEPARATION_TIMED_OUT = "separation timed out"
 
 
 def extension_origin(extension_id: str) -> str:

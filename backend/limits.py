@@ -3,13 +3,12 @@ import logging
 from collections.abc import Callable
 
 from starlette.concurrency import run_in_threadpool
+from stems import Stems
 
 MAX_RUNNING = 1
 MAX_WAITING = 3
 TIMEOUT_SECONDS = 20.0
 RESULT_TTL_SECONDS = 30.0
-
-Stems = dict[str, bytes]
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +88,7 @@ class Results:
             del self._entries[content_hash]
 
     def pop_stem(self, content_hash: str, stem: str) -> bytes | None:
-        """Serve each stem once; the entry goes when its last stem is fetched."""
+        # Each stem is served once; the entry goes with its last stem.
         entry = self._entries.get(content_hash)
         if entry is None:
             return None
