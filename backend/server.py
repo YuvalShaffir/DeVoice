@@ -1,4 +1,5 @@
 import hashlib
+import time
 from collections.abc import Callable
 from typing import Annotated
 
@@ -15,17 +16,36 @@ from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from guard import RequestGuard
-from starlette.concurrency import run_in_threadpool
+from limits import (
+    MAX_RUNNING,
+    MAX_WAITING,
+    RESULT_TTL_SECONDS,
+    TIMEOUT_SECONDS,
+    QueueFull,
+    Results,
+    SeparationQueue,
+    SeparationTimeout,
+    Stems,
+)
 from stems import STEMS
 from wav import InvalidWav, validate_wav
 
 
 def create_app(
     token: str,
-    separate: Callable[[bytes], dict[str, bytes]],
+    separate: Callable[[bytes], Stems],
     extension_origin: str,
+    *,
+    max_running: int = MAX_RUNNING,
+    max_waiting: int = MAX_WAITING,
+    timeout: float = TIMEOUT_SECONDS,
+    ttl: float = RESULT_TTL_SECONDS,
+    now: Callable[[], float] = time.monotonic,
 ) -> FastAPI:
-    pending: dict[str, dict[str, bytes]] = {}
+    queue = SeparationQueue(
+        separate, max_running=max_running, max_waiting=max_waiting, timeout=timeout
+    )
+    results = Results(ttl=ttl, now=now)
 
     app = FastAPI(
         docs_url=None,
@@ -44,6 +64,7 @@ def create_app(
 
     @app.post(SEPARATE_PATH)
     async def separate_endpoint(request: Request) -> dict:
+        results.sweep()
         media_type = request.headers.get(CONTENT_TYPE_HEADER, "").split(";")[0]
         if media_type.strip().lower() != WAV_MEDIA_TYPE:
             raise HTTPException(415, f"{CONTENT_TYPE_HEADER} must be {WAV_MEDIA_TYPE}")
@@ -54,9 +75,14 @@ def create_app(
         except InvalidWav:
             raise HTTPException(400, INVALID_AUDIO) from None
         content_hash = hashlib.sha256(data).hexdigest()
-        if content_hash not in pending:
-            # Calling threadpool because demucs is GPU intensive and blocks event loop.
-            pending[content_hash] = await run_in_threadpool(separate, data)
+        # A dedupe hit keeps the original expiry.
+        if content_hash not in results:
+            try:
+                results.add(content_hash, await queue.run(data))
+            except QueueFull:
+                raise HTTPException(429, "separation queue full") from None
+            except SeparationTimeout:
+                raise HTTPException(504, "separation timed out") from None
         return {"id": content_hash, "stems": STEMS}
 
     @app.get(
@@ -71,14 +97,12 @@ def create_app(
         content_hash: Annotated[str, PathParam(pattern=r"^[0-9a-f]{64}$")],
         stem: str,
     ) -> Response:
+        results.sweep()
         if stem not in STEMS:
             raise HTTPException(404, f"Unknown stem: {stem}")
-        stems = pending.get(content_hash, {})
-        wav_bytes = stems.pop(stem, None)
+        wav_bytes = results.pop_stem(content_hash, stem)
         if wav_bytes is None:
             raise HTTPException(404, "Stem not found")
-        if not stems:
-            del pending[content_hash]
         return Response(wav_bytes, media_type=WAV_MEDIA_TYPE)
 
     return app

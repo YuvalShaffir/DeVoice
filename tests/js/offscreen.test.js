@@ -160,6 +160,16 @@ test("server error skips chunk without stopping capture", async () => {
   assert.strictEqual(env.run("nextIndex"), 2);
 });
 
+test("busy backend (429) skips chunk without stopping capture", async () => {
+  const env = setup({ fetchImpl: () => json({}, 429) });
+  await start(env);
+  chunk(env);
+  await tick(); await tick();
+  assert.strictEqual(env.log.sent.length, 0);
+  assert.strictEqual(env.log.trackStops, 0);
+  assert.strictEqual(env.run("nextIndex"), 2);
+});
+
 test("stale session response is dropped", async () => {
   let release;
   const gate = new Promise((r) => (release = r));
