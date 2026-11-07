@@ -1,17 +1,20 @@
-from os import getenv
 from pathlib import Path
 
 from api import extension_origin
 from auth import load_token
-from separation import separate
 from server import create_app
+from startup import extension_id_from_manifest, refuse_elevated
+
+refuse_elevated()
+
+# Imported after the privilege check: it loads the Demucs model.
+from separation import separate
 
 HERE = Path(__file__).parent
-ID = getenv("EXTENSION_ID")
-EXTENSION_ORIGIN = extension_origin(ID)
+MANIFEST = HERE.parent / "extension" / "manifest.json"
 
 app = create_app(
     token=load_token(HERE / ".auth_token"),
     separate=separate,
-    extension_origin=EXTENSION_ORIGIN,
+    extension_origin=extension_origin(extension_id_from_manifest(MANIFEST)),
 )

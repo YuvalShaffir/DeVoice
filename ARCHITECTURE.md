@@ -15,4 +15,4 @@ tab audio → worklet chunk (6 s WAV) → `POST /separate` (raw `audio/wav` body
 
 ## Trust
 
-Backend accepts only the extension origin (CORS) and a shared token generated at `backend/.auth_token`, pasted into the extension's options page. Requests with a `Host` other than `127.0.0.1` (DNS rebinding), a wrong token, or a body over 2 MB are rejected before any body byte is read.
+Backend accepts only the extension origin (CORS) and a shared token generated at `backend/.auth_token`, pasted into the extension's options page. The extension origin comes from the manifest's pinned key; the backend refuses to run as root/Administrator and never logs audio, headers or tokens. Requests with a `Host` other than `127.0.0.1` (DNS rebinding), a wrong token, or a body over 2 MB are rejected before any body byte is read.

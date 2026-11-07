@@ -6,6 +6,8 @@
 - `test_limits.py` — queue (one run at a time, 429 when full, 504 keeps the slot until the thread returns, slot freed after a crash) via `httpx.AsyncClient`, and result expiry with a fake clock.
 - `test_wav.py` — `validate_wav` accept/reject cases, the 400 path, and seeded fuzzing (bit flips, truncation, header overrides, random bytes): anything but `InvalidWav` fails.
 - `wav_factory.py` — `make_wav(...)` / `chunk(...)` build WAVs field by field, including headers `wave` won't write. Uploads must be valid WAVs (`api_client.VALID_WAV`).
+- `test_startup.py` — extension ID from a manifest key (fake-key vector, repo manifest well-formed), clear errors for bad manifests, root/Administrator refusal, `EXTENSION_ID` gone from code and docs.
+- `test_logging.py` — round trip and 400/403/413/500 paths log no token, header value or audio; 500 body is generic.
 - `test_separation.py` — `backend/separation.py` unit tests with Demucs `Separator` faked.
 - `test_separation_integration.py` — real Demucs on a synthetic clip; marked `slow`.
 - `test_manifest.py` — static checks on `extension/manifest.json`.
